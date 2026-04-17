@@ -3,9 +3,9 @@ import {
   PrimaryGeneratedColumn,
   Column,
   CreateDateColumn,
-} from 'typeorm';
+} from "typeorm";
 
-@Entity('courriers')
+@Entity("courriers")
 export class Courrier {
   @PrimaryGeneratedColumn()
   id: number;
@@ -23,10 +23,13 @@ export class Courrier {
   destinataire: string;
 
   @Column()
-  type: string; // Entrant | Sortant
+  type: string;
 
-  @Column({ default: 'En cours' })
+  @Column({ default: "En cours" })
   statut: string;
+
+  @Column({ type: "date", nullable: true })
+  dateLimiteReponse: string | null;
 
   @CreateDateColumn()
   createdAt: Date;
