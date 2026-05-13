@@ -38,7 +38,7 @@ export default function AjouterCourrier() {
         statut: "En cours",
       });
     } else {
-      alert("Erreur ❌");
+      alert("Erreur");
     }
   };
 

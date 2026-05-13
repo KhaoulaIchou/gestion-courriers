@@ -11,6 +11,7 @@ type Courrier = {
   destinataire?: string;
   type: string;
   statut: string;
+  stakeholderId?: number | null;
   dateLimiteReponse?: string | null;
   createdAt: string;
 };
@@ -24,6 +25,19 @@ type NotificationItem = {
   createdAt: string;
 };
 
+type Stakeholder = {
+  id: number;
+  nom: string;
+  direction: string;
+  service: string;
+  type: string;
+  email?: string | null;
+  telephone?: string | null;
+  adresse?: string | null;
+  isActive: boolean;
+  createdAt: string;
+};
+
 type CourrierForm = {
   reference: string;
   objet: string;
@@ -31,32 +45,54 @@ type CourrierForm = {
   destinataire: string;
   type: string;
   statut: string;
+  stakeholderId: string;
+  dateLimiteReponse: string;
 };
 
-const initialForm: CourrierForm = {
+type StakeholderForm = {
+  nom: string;
+  direction: string;
+  service: string;
+  type: string;
+  email: string;
+  telephone: string;
+  adresse: string;
+};
+
+const initialCourrierForm: CourrierForm = {
   reference: "",
   objet: "",
   expediteur: "",
   destinataire: "",
   type: "Entrant",
   statut: "En cours",
+  stakeholderId: "",
+  dateLimiteReponse: "",
+};
+
+const initialStakeholderForm: StakeholderForm = {
+  nom: "",
+  direction: "",
+  service: "",
+  type: "Service",
+  email: "",
+  telephone: "",
+  adresse: "",
 };
 
 export default function HomePage() {
   const [isOpen, setIsOpen] = useState(false);
   const [isNotificationsOpen, setIsNotificationsOpen] = useState(false);
+  const [isStakeholderOpen, setIsStakeholderOpen] = useState(false);
+
   const [courriers, setCourriers] = useState<Courrier[]>([]);
   const [notifications, setNotifications] = useState<NotificationItem[]>([]);
+  const [stakeholders, setStakeholders] = useState<Stakeholder[]>([]);
+
   const [loading, setLoading] = useState(true);
-  const [form, setForm] = useState({
-  reference: "",
-  objet: "",
-  expediteur: "",
-  destinataire: "",
-  type: "Entrant",
-  statut: "En cours",
-  dateLimiteReponse: "",
-});
+  const [form, setForm] = useState<CourrierForm>(initialCourrierForm);
+  const [stakeholderForm, setStakeholderForm] =
+    useState<StakeholderForm>(initialStakeholderForm);
 
   const fetchCourriers = useCallback(async () => {
     try {
@@ -87,10 +123,24 @@ export default function HomePage() {
     }
   }, []);
 
+  const fetchStakeholders = useCallback(async () => {
+    try {
+      const res = await fetch("http://localhost:3001/stakeholders");
+      if (!res.ok) {
+        throw new Error("Erreur lors du chargement des parties prenantes");
+      }
+      const data: Stakeholder[] = await res.json();
+      setStakeholders(data);
+    } catch (error) {
+      console.error(error);
+    }
+  }, []);
+
   useEffect(() => {
     fetchCourriers();
     fetchNotifications();
-  }, [fetchCourriers, fetchNotifications]);
+    fetchStakeholders();
+  }, [fetchCourriers, fetchNotifications, fetchStakeholders]);
 
   const handleChange = (
     e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>,
@@ -101,31 +151,47 @@ export default function HomePage() {
     }));
   };
 
+  const handleStakeholderChange = (
+    e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>,
+  ) => {
+    setStakeholderForm((prev) => ({
+      ...prev,
+      [e.target.name]: e.target.value,
+    }));
+  };
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
 
     try {
+      const selectedStakeholder = stakeholders.find(
+        (item) => item.id === Number(form.stakeholderId),
+      );
+
+      const payload = {
+        reference: form.reference,
+        objet: form.objet,
+        expediteur: selectedStakeholder ? selectedStakeholder.nom : form.expediteur,
+        destinataire: form.destinataire,
+        type: form.type,
+        statut: form.statut,
+        stakeholderId: form.stakeholderId ? Number(form.stakeholderId) : null,
+        dateLimiteReponse: form.dateLimiteReponse || null,
+      };
+
       const res = await fetch("http://localhost:3001/courriers", {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
         },
-        body: JSON.stringify(form),
+        body: JSON.stringify(payload),
       });
 
       if (!res.ok) {
         throw new Error("Erreur lors de l'ajout du courrier");
       }
 
-      setForm({
-        reference: "",
-        objet: "",
-        expediteur: "",
-        destinataire: "",
-        type: "Entrant",
-        statut: "En cours",
-        dateLimiteReponse: "",
-      });
+      setForm(initialCourrierForm);
       setIsOpen(false);
 
       await fetchCourriers();
@@ -133,6 +199,31 @@ export default function HomePage() {
     } catch (error) {
       console.error(error);
       alert("Une erreur est survenue");
+    }
+  };
+
+  const handleStakeholderSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+
+    try {
+      const res = await fetch("http://localhost:3001/stakeholders", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify(stakeholderForm),
+      });
+
+      if (!res.ok) {
+        throw new Error("Erreur lors de l'ajout de la partie prenante");
+      }
+
+      setStakeholderForm(initialStakeholderForm);
+      setIsStakeholderOpen(false);
+      await fetchStakeholders();
+    } catch (error) {
+      console.error(error);
+      alert("Erreur lors de l'ajout de la partie prenante");
     }
   };
 
@@ -177,6 +268,12 @@ export default function HomePage() {
               >
                 Notifications
               </button>
+              <button
+                onClick={() => setIsStakeholderOpen(true)}
+                className="w-full rounded-2xl px-4 py-3 text-left text-sm font-medium text-slate-700 hover:bg-slate-100"
+              >
+                Parties prenantes
+              </button>
               <button className="w-full rounded-2xl px-4 py-3 text-left text-sm font-medium text-slate-700 hover:bg-slate-100">
                 Paramètres
               </button>
@@ -206,6 +303,13 @@ export default function HomePage() {
                       {unreadNotificationsCount}
                     </span>
                   )}
+                </button>
+
+                <button
+                  onClick={() => setIsStakeholderOpen(true)}
+                  className="rounded-2xl border border-slate-200 bg-white px-4 py-2 text-sm font-medium text-slate-700 hover:bg-slate-100"
+                >
+                  Parties prenantes
                 </button>
 
                 <button className="rounded-2xl border border-slate-200 bg-white px-4 py-2 text-sm font-medium text-slate-700 hover:bg-slate-100">
@@ -361,6 +465,12 @@ export default function HomePage() {
                     >
                       Ajouter un courrier
                     </button>
+                    <button
+                      onClick={() => setIsStakeholderOpen(true)}
+                      className="w-full rounded-2xl border border-slate-200 px-4 py-3 text-left text-sm font-medium text-slate-700 transition hover:bg-slate-100"
+                    >
+                      Ajouter une partie prenante
+                    </button>
                     <button className="w-full rounded-2xl border border-slate-200 px-4 py-3 text-left text-sm font-medium text-slate-700 transition hover:bg-slate-100">
                       Consulter les entrants
                     </button>
@@ -464,16 +574,21 @@ export default function HomePage() {
 
               <div>
                 <label className="mb-2 block text-sm font-medium text-slate-700">
-                  Expéditeur
+                  Partie prenante / Expéditeur
                 </label>
-                <input
-                  name="expediteur"
-                  value={form.expediteur}
+                <select
+                  name="stakeholderId"
+                  value={form.stakeholderId}
                   onChange={handleChange}
                   className="w-full rounded-2xl border border-slate-200 px-4 py-3 outline-none focus:border-blue-500"
-                  placeholder="Tribunal de Safi"
-                  required
-                />
+                >
+                  <option value="">Sélectionner une partie prenante</option>
+                  {stakeholders.map((stakeholder) => (
+                    <option key={stakeholder.id} value={stakeholder.id}>
+                      {stakeholder.nom} — {stakeholder.service}
+                    </option>
+                  ))}
+                </select>
               </div>
 
               <div>
@@ -504,18 +619,19 @@ export default function HomePage() {
                   <option value="En attente">En attente</option>
                 </select>
               </div>
+
               <div>
-              <label className="mb-2 block text-sm font-medium text-slate-700">
-                Date limite de réponse
-              </label>
-              <input
-                type="date"
-                name="dateLimiteReponse"
-                value={form.dateLimiteReponse}
-                onChange={handleChange}
-                className="w-full rounded-2xl border border-slate-200 px-4 py-3 outline-none focus:border-blue-500"
-              />
-            </div>
+                <label className="mb-2 block text-sm font-medium text-slate-700">
+                  Date limite de réponse
+                </label>
+                <input
+                  type="date"
+                  name="dateLimiteReponse"
+                  value={form.dateLimiteReponse}
+                  onChange={handleChange}
+                  className="w-full rounded-2xl border border-slate-200 px-4 py-3 outline-none focus:border-blue-500"
+                />
+              </div>
 
               <div className="mt-2 flex items-center justify-end gap-3 md:col-span-2">
                 <button
@@ -570,15 +686,15 @@ export default function HomePage() {
                 notifications.map((notification) => (
                   <div
                     key={notification.id}
-                      className={`rounded-2xl border p-4 ${
-                        notification.type === "danger"
-                          ? "border-red-200 bg-red-50"
-                          : notification.type === "warning"
-                            ? "border-amber-200 bg-amber-50"
-                            : notification.isRead
-                              ? "border-slate-200 bg-slate-50"
-                              : "border-blue-200 bg-blue-50"
-                      }`}
+                    className={`rounded-2xl border p-4 ${
+                      notification.type === "danger"
+                        ? "border-red-200 bg-red-50"
+                        : notification.type === "warning"
+                          ? "border-amber-200 bg-amber-50"
+                          : notification.isRead
+                            ? "border-slate-200 bg-slate-50"
+                            : "border-blue-200 bg-blue-50"
+                    }`}
                   >
                     <div className="flex items-start justify-between gap-3">
                       <div>
@@ -615,6 +731,153 @@ export default function HomePage() {
                 ))
               )}
             </div>
+          </div>
+        </div>
+      )}
+
+      {isStakeholderOpen && (
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4"
+          onClick={() => setIsStakeholderOpen(false)}
+        >
+          <div
+            className="w-full max-w-3xl rounded-3xl bg-white p-8 shadow-2xl"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="mb-6 flex items-center justify-between">
+              <div>
+                <h2 className="text-2xl font-bold">Ajouter une partie prenante</h2>
+                <p className="mt-1 text-sm text-slate-500">
+                  Ajoute une direction, un service ou un interlocuteur.
+                </p>
+              </div>
+              <button
+                onClick={() => setIsStakeholderOpen(false)}
+                className="rounded-full px-3 py-1 text-slate-500 hover:bg-slate-100"
+              >
+                ✕
+              </button>
+            </div>
+
+            <form
+              onSubmit={handleStakeholderSubmit}
+              className="grid grid-cols-1 gap-4 md:grid-cols-2"
+            >
+              <div>
+                <label className="mb-2 block text-sm font-medium text-slate-700">
+                  Nom affiché
+                </label>
+                <input
+                  name="nom"
+                  value={stakeholderForm.nom}
+                  onChange={handleStakeholderChange}
+                  className="w-full rounded-2xl border border-slate-200 px-4 py-3 outline-none focus:border-blue-500"
+                  placeholder="Ex: مصلحة البنية التحتية والشبكات"
+                  required
+                />
+              </div>
+
+              <div>
+                <label className="mb-2 block text-sm font-medium text-slate-700">
+                  Type
+                </label>
+                <select
+                  name="type"
+                  value={stakeholderForm.type}
+                  onChange={handleStakeholderChange}
+                  className="w-full rounded-2xl border border-slate-200 px-4 py-3 outline-none focus:border-blue-500"
+                >
+                  <option value="Direction">Direction</option>
+                  <option value="Service">Service</option>
+                  <option value="Partenaire">Partenaire</option>
+                  <option value="Tribunal">Tribunal</option>
+                  <option value="Autre">Autre</option>
+                </select>
+              </div>
+
+              <div className="md:col-span-2">
+                <label className="mb-2 block text-sm font-medium text-slate-700">
+                  Direction
+                </label>
+                <input
+                  name="direction"
+                  value={stakeholderForm.direction}
+                  onChange={handleStakeholderChange}
+                  className="w-full rounded-2xl border border-slate-200 px-4 py-3 outline-none focus:border-blue-500"
+                  placeholder="Ex: مديرية التحديث ونظم المعلومات"
+                  required
+                />
+              </div>
+
+              <div className="md:col-span-2">
+                <label className="mb-2 block text-sm font-medium text-slate-700">
+                  Service
+                </label>
+                <input
+                  name="service"
+                  value={stakeholderForm.service}
+                  onChange={handleStakeholderChange}
+                  className="w-full rounded-2xl border border-slate-200 px-4 py-3 outline-none focus:border-blue-500"
+                  placeholder="Ex: مصلحة حكامة البيانات وتدبير المنصات الإلكترونية"
+                  required
+                />
+              </div>
+
+              <div>
+                <label className="mb-2 block text-sm font-medium text-slate-700">
+                  Email
+                </label>
+                <input
+                  name="email"
+                  value={stakeholderForm.email}
+                  onChange={handleStakeholderChange}
+                  className="w-full rounded-2xl border border-slate-200 px-4 py-3 outline-none focus:border-blue-500"
+                  placeholder="email@exemple.com"
+                />
+              </div>
+
+              <div>
+                <label className="mb-2 block text-sm font-medium text-slate-700">
+                  Téléphone
+                </label>
+                <input
+                  name="telephone"
+                  value={stakeholderForm.telephone}
+                  onChange={handleStakeholderChange}
+                  className="w-full rounded-2xl border border-slate-200 px-4 py-3 outline-none focus:border-blue-500"
+                  placeholder="0600000000"
+                />
+              </div>
+
+              <div className="md:col-span-2">
+                <label className="mb-2 block text-sm font-medium text-slate-700">
+                  Adresse
+                </label>
+                <input
+                  name="adresse"
+                  value={stakeholderForm.adresse}
+                  onChange={handleStakeholderChange}
+                  className="w-full rounded-2xl border border-slate-200 px-4 py-3 outline-none focus:border-blue-500"
+                  placeholder="Adresse facultative"
+                />
+              </div>
+
+              <div className="mt-2 flex items-center justify-end gap-3 md:col-span-2">
+                <button
+                  type="button"
+                  onClick={() => setIsStakeholderOpen(false)}
+                  className="rounded-2xl border border-slate-200 px-5 py-3 text-sm font-medium text-slate-700 hover:bg-slate-100"
+                >
+                  Annuler
+                </button>
+                <button
+                  type="submit"
+                  className="rounded-2xl bg-blue-600 px-5 py-3 text-sm font-semibold text-white hover:bg-blue-700"
+                >
+                  Enregistrer
+                </button>
+              </div>
+            </form>
           </div>
         </div>
       )}

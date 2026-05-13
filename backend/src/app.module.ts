@@ -3,6 +3,7 @@ import { ConfigModule, ConfigService } from '@nestjs/config';
 import { TypeOrmModule } from '@nestjs/typeorm';
 import { CourriersModule } from './courriers/courriers.module';
 import { NotificationsModule } from './notifications/notifications.module';
+import { StakeholdersModule } from './stakeholders/stakeholders.module';
 
 @Module({
   imports: [
@@ -25,6 +26,8 @@ import { NotificationsModule } from './notifications/notifications.module';
     CourriersModule,
 
     NotificationsModule,
+
+    StakeholdersModule,
   ],
 })
 export class AppModule {}

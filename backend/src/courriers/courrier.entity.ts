@@ -28,6 +28,9 @@ export class Courrier {
   @Column({ default: "En cours" })
   statut: string;
 
+  @Column({ type: "int", nullable: true })
+  stakeholderId: number | null;
+
   @Column({ type: "date", nullable: true })
   dateLimiteReponse: string | null;
 
