@@ -1,8 +1,8 @@
 import { Module } from "@nestjs/common";
 import { TypeOrmModule } from "@nestjs/typeorm";
 import { Stakeholder } from "./stakeholder.entity";
-import { StakeholdersService } from "./stakeholders.service";
 import { StakeholdersController } from "./stakeholders.controller";
+import { StakeholdersService } from "./stakeholders.service";
 
 @Module({
   imports: [TypeOrmModule.forFeature([Stakeholder])],

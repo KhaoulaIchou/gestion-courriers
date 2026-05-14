@@ -1,7 +1,7 @@
-import { Body, Controller, Get, Post } from '@nestjs/common';
-import { CourriersService } from './courriers.service';
+import { Body, Controller, Get, Post } from "@nestjs/common";
+import { CourriersService } from "./courriers.service";
 
-@Controller('courriers')
+@Controller("courriers")
 export class CourriersController {
   constructor(private readonly courriersService: CourriersService) {}
 

@@ -19,7 +19,17 @@ export class CourriersService {
   }
 
   async create(data: Partial<Courrier>): Promise<Courrier> {
-    const courrier = this.courrierRepository.create(data);
+    const courrier = this.courrierRepository.create({
+      reference: data.reference,
+      objet: data.objet,
+      expediteur: data.expediteur,
+      destinataire: data.destinataire || "",
+      type: data.type,
+      statut: data.statut || "En cours",
+      stakeholderId: data.stakeholderId ?? null,
+      dateLimiteReponse: data.dateLimiteReponse ?? null,
+    });
+
     const savedCourrier = await this.courrierRepository.save(courrier);
 
     await this.notificationsService.create({

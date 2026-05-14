@@ -14,15 +14,25 @@ export class StakeholdersService {
     return this.stakeholderRepository.find({
       where: { isActive: true },
       order: {
-        direction: "ASC",
-        service: "ASC",
+        categorie: "ASC",
+        entiteParent: "ASC",
         nom: "ASC",
       },
     });
   }
 
   async create(data: Partial<Stakeholder>): Promise<Stakeholder> {
-    const stakeholder = this.stakeholderRepository.create(data);
+    const stakeholder = this.stakeholderRepository.create({
+      nom: data.nom?.trim(),
+      categorie: data.categorie?.trim(),
+      entiteParent: data.entiteParent?.trim() || null,
+      ville: data.ville?.trim() || null,
+      email: data.email?.trim() || null,
+      telephone: data.telephone?.trim() || null,
+      adresse: data.adresse?.trim() || null,
+      isActive: data.isActive ?? true,
+    });
+
     return this.stakeholderRepository.save(stakeholder);
   }
 }

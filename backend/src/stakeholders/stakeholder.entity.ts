@@ -13,14 +13,14 @@ export class Stakeholder {
   @Column({ type: "varchar", length: 200 })
   nom: string;
 
-  @Column({ type: "varchar", length: 250 })
-  direction: string;
+  @Column({ type: "varchar", length: 100 })
+  categorie: string;
 
-  @Column({ type: "varchar", length: 250 })
-  service: string;
+  @Column({ type: "varchar", length: 255, nullable: true })
+  entiteParent: string | null;
 
-  @Column({ type: "varchar", length: 100, default: "Service" })
-  type: string;
+  @Column({ type: "varchar", length: 150, nullable: true })
+  ville: string | null;
 
   @Column({ type: "varchar", length: 150, nullable: true })
   email: string | null;

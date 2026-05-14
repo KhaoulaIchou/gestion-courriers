@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { Bell } from "lucide-react";
+import Link from "next/link";
 
 type Courrier = {
   id: number;
@@ -28,9 +29,9 @@ type NotificationItem = {
 type Stakeholder = {
   id: number;
   nom: string;
-  direction: string;
-  service: string;
-  type: string;
+  categorie: string;
+  entiteParent?: string | null;
+  ville?: string | null;
   email?: string | null;
   telephone?: string | null;
   adresse?: string | null;
@@ -51,19 +52,43 @@ type CourrierForm = {
 
 type StakeholderForm = {
   nom: string;
-  direction: string;
-  service: string;
-  type: string;
+  categorie: string;
+  entiteParent: string;
+  ville: string;
   email: string;
   telephone: string;
   adresse: string;
 };
 
+const stakeholderTypes = [
+  { value: "tribunal", label: "Tribunal" },
+  { value: "centre_juge_resident", label: "Centre de juge résident" },
+  { value: "direction_centrale", label: "Direction centrale" },
+  {
+    value: "service_direction_centrale",
+    label: "Service de direction centrale",
+  },
+  { value: "direction_provinciale", label: "Direction provinciale" },
+  {
+    value: "service_direction_provinciale",
+    label: "Service de direction provinciale",
+  },
+  { value: "particulier", label: "Particulier" },
+  { value: "societe", label: "Société" },
+  { value: "autre", label: "Autre" },
+];
+
+const DEFAULT_DIRECTION_PROVINCIALE =
+  "Direction provinciale de justice de Safi";
+
+const INTERNAL_SERVICE_LABEL =
+  "Service de l’équipement, de la gestion des biens et des systèmes d’information";
+
 const initialCourrierForm: CourrierForm = {
   reference: "",
   objet: "",
   expediteur: "",
-  destinataire: "",
+  destinataire: INTERNAL_SERVICE_LABEL,
   type: "Entrant",
   statut: "En cours",
   stakeholderId: "",
@@ -72,9 +97,9 @@ const initialCourrierForm: CourrierForm = {
 
 const initialStakeholderForm: StakeholderForm = {
   nom: "",
-  direction: "",
-  service: "",
-  type: "Service",
+  categorie: "",
+  entiteParent: "",
+  ville: "",
   email: "",
   telephone: "",
   adresse: "",
@@ -83,7 +108,11 @@ const initialStakeholderForm: StakeholderForm = {
 export default function HomePage() {
   const [isOpen, setIsOpen] = useState(false);
   const [isNotificationsOpen, setIsNotificationsOpen] = useState(false);
+
+  const [isStakeholderTypeOpen, setIsStakeholderTypeOpen] = useState(false);
   const [isStakeholderOpen, setIsStakeholderOpen] = useState(false);
+  const [selectedStakeholderCategory, setSelectedStakeholderCategory] =
+    useState("");
 
   const [courriers, setCourriers] = useState<Courrier[]>([]);
   const [notifications, setNotifications] = useState<NotificationItem[]>([]);
@@ -142,12 +171,33 @@ export default function HomePage() {
     fetchStakeholders();
   }, [fetchCourriers, fetchNotifications, fetchStakeholders]);
 
+  const isEntrant = form.type === "Entrant";
+
+  const centralDirections = useMemo(() => {
+    return stakeholders.filter(
+      (item) => item.categorie === "direction_centrale" && item.isActive,
+    );
+  }, [stakeholders]);
+
   const handleChange = (
     e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>,
   ) => {
+    const { name, value } = e.target;
+
+    if (name === "type") {
+      setForm((prev) => ({
+        ...prev,
+        type: value,
+        stakeholderId: "",
+        expediteur: value === "Sortant" ? INTERNAL_SERVICE_LABEL : "",
+        destinataire: value === "Entrant" ? INTERNAL_SERVICE_LABEL : "",
+      }));
+      return;
+    }
+
     setForm((prev) => ({
       ...prev,
-      [e.target.name]: e.target.value,
+      [name]: value,
     }));
   };
 
@@ -160,6 +210,73 @@ export default function HomePage() {
     }));
   };
 
+  const openStakeholderTypePopup = () => {
+    setIsStakeholderTypeOpen(true);
+  };
+
+  const openStakeholderForm = () => {
+    if (!selectedStakeholderCategory) {
+      alert("Veuillez sélectionner un type de partie prenante");
+      return;
+    }
+
+    setStakeholderForm({
+      ...initialStakeholderForm,
+      categorie: selectedStakeholderCategory,
+      entiteParent:
+        selectedStakeholderCategory === "service_direction_provinciale"
+          ? DEFAULT_DIRECTION_PROVINCIALE
+          : "",
+    });
+
+    setIsStakeholderTypeOpen(false);
+    setIsStakeholderOpen(true);
+  };
+
+  const closeStakeholderFlow = () => {
+    setIsStakeholderTypeOpen(false);
+    setIsStakeholderOpen(false);
+    setSelectedStakeholderCategory("");
+    setStakeholderForm(initialStakeholderForm);
+  };
+
+  const getStakeholderTypeLabel = (value: string) => {
+    return (
+      stakeholderTypes.find((item) => item.value === value)?.label ||
+      "Partie prenante"
+    );
+  };
+
+  const requiresVille = (category: string) => {
+    return (
+      category === "tribunal" ||
+      category === "centre_juge_resident" ||
+      category === "direction_provinciale" ||
+      category === "societe"
+    );
+  };
+
+  const stakeholderOptionLabel = (stakeholder: Stakeholder) => {
+    const typeLabel = getStakeholderTypeLabel(stakeholder.categorie);
+
+    if (
+      stakeholder.categorie === "direction_provinciale" ||
+      stakeholder.categorie === "direction_centrale"
+    ) {
+      return `${stakeholder.nom} — ${typeLabel}`;
+    }
+
+    if (stakeholder.entiteParent) {
+      return `${stakeholder.nom} — ${typeLabel} — ${stakeholder.entiteParent}`;
+    }
+
+    if (stakeholder.ville) {
+      return `${stakeholder.nom} — ${typeLabel} — ${stakeholder.ville}`;
+    }
+
+    return `${stakeholder.nom} — ${typeLabel}`;
+  };
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
 
@@ -168,14 +285,23 @@ export default function HomePage() {
         (item) => item.id === Number(form.stakeholderId),
       );
 
+      if (!selectedStakeholder) {
+        alert("Veuillez sélectionner une partie prenante.");
+        return;
+      }
+
       const payload = {
         reference: form.reference,
         objet: form.objet,
-        expediteur: selectedStakeholder ? selectedStakeholder.nom : form.expediteur,
-        destinataire: form.destinataire,
+        expediteur: isEntrant
+          ? selectedStakeholder.nom
+          : INTERNAL_SERVICE_LABEL,
+        destinataire: isEntrant
+          ? INTERNAL_SERVICE_LABEL
+          : selectedStakeholder.nom,
         type: form.type,
         statut: form.statut,
-        stakeholderId: form.stakeholderId ? Number(form.stakeholderId) : null,
+        stakeholderId: Number(form.stakeholderId),
         dateLimiteReponse: form.dateLimiteReponse || null,
       };
 
@@ -219,6 +345,7 @@ export default function HomePage() {
       }
 
       setStakeholderForm(initialStakeholderForm);
+      setSelectedStakeholderCategory("");
       setIsStakeholderOpen(false);
       await fetchStakeholders();
     } catch (error) {
@@ -253,12 +380,18 @@ export default function HomePage() {
               <button className="w-full rounded-2xl bg-blue-600 px-4 py-3 text-left text-sm font-semibold text-white">
                 Tableau de bord
               </button>
-              <button className="w-full rounded-2xl px-4 py-3 text-left text-sm font-medium text-slate-700 hover:bg-slate-100">
+              <Link
+                href="/courriers/entrants"
+                className="block w-full rounded-2xl px-4 py-3 text-left text-sm font-medium text-slate-700 hover:bg-slate-100"
+              >
                 Courriers entrants
-              </button>
-              <button className="w-full rounded-2xl px-4 py-3 text-left text-sm font-medium text-slate-700 hover:bg-slate-100">
+              </Link>
+              <Link
+                href="/courriers/sortants"
+                className="block w-full rounded-2xl px-4 py-3 text-left text-sm font-medium text-slate-700 hover:bg-slate-100"
+              >
                 Courriers sortants
-              </button>
+              </Link>
               <button className="w-full rounded-2xl px-4 py-3 text-left text-sm font-medium text-slate-700 hover:bg-slate-100">
                 Recherche
               </button>
@@ -269,7 +402,7 @@ export default function HomePage() {
                 Notifications
               </button>
               <button
-                onClick={() => setIsStakeholderOpen(true)}
+                onClick={openStakeholderTypePopup}
                 className="w-full rounded-2xl px-4 py-3 text-left text-sm font-medium text-slate-700 hover:bg-slate-100"
               >
                 Parties prenantes
@@ -306,7 +439,7 @@ export default function HomePage() {
                 </button>
 
                 <button
-                  onClick={() => setIsStakeholderOpen(true)}
+                  onClick={openStakeholderTypePopup}
                   className="rounded-2xl border border-slate-200 bg-white px-4 py-2 text-sm font-medium text-slate-700 hover:bg-slate-100"
                 >
                   Parties prenantes
@@ -466,7 +599,7 @@ export default function HomePage() {
                       Ajouter un courrier
                     </button>
                     <button
-                      onClick={() => setIsStakeholderOpen(true)}
+                      onClick={openStakeholderTypePopup}
                       className="w-full rounded-2xl border border-slate-200 px-4 py-3 text-left text-sm font-medium text-slate-700 transition hover:bg-slate-100"
                     >
                       Ajouter une partie prenante
@@ -483,7 +616,7 @@ export default function HomePage() {
                   </div>
                 </div>
 
-                <div className="rounded-3xl bg-gradient-to-br from-blue-600 to-slate-900 p-6 text-white shadow-sm">
+                {/*<div className="rounded-3xl bg-gradient-to-br from-blue-600 to-slate-900 p-6 text-white shadow-sm">
                   <p className="text-sm uppercase tracking-[0.25em] text-blue-100">
                     AI Ready
                   </p>
@@ -494,7 +627,7 @@ export default function HomePage() {
                     Classification automatique, résumé, extraction PDF et
                     recherche intelligente.
                   </p>
-                </div>
+                </div>*/}
               </div>
             </section>
           </div>
@@ -572,37 +705,73 @@ export default function HomePage() {
                 />
               </div>
 
-              <div>
-                <label className="mb-2 block text-sm font-medium text-slate-700">
-                  Partie prenante / Expéditeur
-                </label>
-                <select
-                  name="stakeholderId"
-                  value={form.stakeholderId}
-                  onChange={handleChange}
-                  className="w-full rounded-2xl border border-slate-200 px-4 py-3 outline-none focus:border-blue-500"
-                >
-                  <option value="">Sélectionner une partie prenante</option>
-                  {stakeholders.map((stakeholder) => (
-                    <option key={stakeholder.id} value={stakeholder.id}>
-                      {stakeholder.nom} — {stakeholder.service}
-                    </option>
-                  ))}
-                </select>
-              </div>
+              {isEntrant ? (
+                <>
+                  <div>
+                    <label className="mb-2 block text-sm font-medium text-slate-700">
+                      Expéditeur
+                    </label>
+                    <select
+                      name="stakeholderId"
+                      value={form.stakeholderId}
+                      onChange={handleChange}
+                      className="w-full rounded-2xl border border-slate-200 px-4 py-3 outline-none focus:border-blue-500"
+                      required
+                    >
+                      <option value="">Sélectionner une partie prenante</option>
+                      {stakeholders.map((stakeholder) => (
+                        <option key={stakeholder.id} value={stakeholder.id}>
+                          {stakeholderOptionLabel(stakeholder)}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
 
-              <div>
-                <label className="mb-2 block text-sm font-medium text-slate-700">
-                  Destinataire
-                </label>
-                <input
-                  name="destinataire"
-                  value={form.destinataire}
-                  onChange={handleChange}
-                  className="w-full rounded-2xl border border-slate-200 px-4 py-3 outline-none focus:border-blue-500"
-                  placeholder="Service Informatique"
-                />
-              </div>
+                  <div>
+                    <label className="mb-2 block text-sm font-medium text-slate-700">
+                      Destinataire
+                    </label>
+                    <input
+                      value={INTERNAL_SERVICE_LABEL}
+                      className="w-full rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3 text-slate-700 outline-none"
+                      disabled
+                    />
+                  </div>
+                </>
+              ) : (
+                <>
+                  <div>
+                    <label className="mb-2 block text-sm font-medium text-slate-700">
+                      Expéditeur
+                    </label>
+                    <input
+                      value={INTERNAL_SERVICE_LABEL}
+                      className="w-full rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3 text-slate-700 outline-none"
+                      disabled
+                    />
+                  </div>
+
+                  <div>
+                    <label className="mb-2 block text-sm font-medium text-slate-700">
+                      Destinataire
+                    </label>
+                    <select
+                      name="stakeholderId"
+                      value={form.stakeholderId}
+                      onChange={handleChange}
+                      className="w-full rounded-2xl border border-slate-200 px-4 py-3 outline-none focus:border-blue-500"
+                      required
+                    >
+                      <option value="">Sélectionner une partie prenante</option>
+                      {stakeholders.map((stakeholder) => (
+                        <option key={stakeholder.id} value={stakeholder.id}>
+                          {stakeholderOptionLabel(stakeholder)}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+                </>
+              )}
 
               <div>
                 <label className="mb-2 block text-sm font-medium text-slate-700">
@@ -735,10 +904,74 @@ export default function HomePage() {
         </div>
       )}
 
+      {isStakeholderTypeOpen && (
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4"
+          onClick={() => setIsStakeholderTypeOpen(false)}
+        >
+          <div
+            className="w-full max-w-xl rounded-3xl bg-white p-8 shadow-2xl"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="mb-6 flex items-center justify-between">
+              <div>
+                <h2 className="text-2xl font-bold">Choisir le type</h2>
+                <p className="mt-1 text-sm text-slate-500">
+                  Sélectionnez d’abord le type de partie prenante.
+                </p>
+              </div>
+              <button
+                onClick={() => setIsStakeholderTypeOpen(false)}
+                className="rounded-full px-3 py-1 text-slate-500 hover:bg-slate-100"
+              >
+                ✕
+              </button>
+            </div>
+
+            <div className="space-y-4">
+              <div>
+                <label className="mb-2 block text-sm font-medium text-slate-700">
+                  Type de partie prenante
+                </label>
+                <select
+                  value={selectedStakeholderCategory}
+                  onChange={(e) => setSelectedStakeholderCategory(e.target.value)}
+                  className="w-full rounded-2xl border border-slate-200 px-4 py-3 outline-none focus:border-blue-500"
+                >
+                  <option value="">Sélectionner un type</option>
+                  {stakeholderTypes.map((item) => (
+                    <option key={item.value} value={item.value}>
+                      {item.label}
+                    </option>
+                  ))}
+                </select>
+              </div>
+
+              <div className="flex justify-end gap-3 pt-2">
+                <button
+                  type="button"
+                  onClick={() => setIsStakeholderTypeOpen(false)}
+                  className="rounded-2xl border border-slate-200 px-5 py-3 text-sm font-medium text-slate-700 hover:bg-slate-100"
+                >
+                  Annuler
+                </button>
+                <button
+                  type="button"
+                  onClick={openStakeholderForm}
+                  className="rounded-2xl bg-blue-600 px-5 py-3 text-sm font-semibold text-white hover:bg-blue-700"
+                >
+                  Continuer
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
       {isStakeholderOpen && (
         <div
           className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4"
-          onClick={() => setIsStakeholderOpen(false)}
+          onClick={closeStakeholderFlow}
         >
           <div
             className="w-full max-w-3xl rounded-3xl bg-white p-8 shadow-2xl"
@@ -746,13 +979,15 @@ export default function HomePage() {
           >
             <div className="mb-6 flex items-center justify-between">
               <div>
-                <h2 className="text-2xl font-bold">Ajouter une partie prenante</h2>
+                <h2 className="text-2xl font-bold">
+                  Ajouter : {getStakeholderTypeLabel(selectedStakeholderCategory)}
+                </h2>
                 <p className="mt-1 text-sm text-slate-500">
-                  Ajoute une direction, un service ou un interlocuteur.
+                  Remplissez les informations selon le type choisi.
                 </p>
               </div>
               <button
-                onClick={() => setIsStakeholderOpen(false)}
+                onClick={closeStakeholderFlow}
                 className="rounded-full px-3 py-1 text-slate-500 hover:bg-slate-100"
               >
                 ✕
@@ -763,65 +998,91 @@ export default function HomePage() {
               onSubmit={handleStakeholderSubmit}
               className="grid grid-cols-1 gap-4 md:grid-cols-2"
             >
-              <div>
+              <div className="md:col-span-2">
                 <label className="mb-2 block text-sm font-medium text-slate-700">
-                  Nom affiché
+                  Nom
                 </label>
                 <input
                   name="nom"
                   value={stakeholderForm.nom}
                   onChange={handleStakeholderChange}
                   className="w-full rounded-2xl border border-slate-200 px-4 py-3 outline-none focus:border-blue-500"
-                  placeholder="Ex: مصلحة البنية التحتية والشبكات"
+                  placeholder="Nom de la partie prenante"
                   required
                 />
               </div>
 
               <div>
                 <label className="mb-2 block text-sm font-medium text-slate-700">
-                  Type
-                </label>
-                <select
-                  name="type"
-                  value={stakeholderForm.type}
-                  onChange={handleStakeholderChange}
-                  className="w-full rounded-2xl border border-slate-200 px-4 py-3 outline-none focus:border-blue-500"
-                >
-                  <option value="Direction">Direction</option>
-                  <option value="Service">Service</option>
-                  <option value="Partenaire">Partenaire</option>
-                  <option value="Tribunal">Tribunal</option>
-                  <option value="Autre">Autre</option>
-                </select>
-              </div>
-
-              <div className="md:col-span-2">
-                <label className="mb-2 block text-sm font-medium text-slate-700">
-                  Direction
+                  Catégorie
                 </label>
                 <input
-                  name="direction"
-                  value={stakeholderForm.direction}
-                  onChange={handleStakeholderChange}
-                  className="w-full rounded-2xl border border-slate-200 px-4 py-3 outline-none focus:border-blue-500"
-                  placeholder="Ex: مديرية التحديث ونظم المعلومات"
-                  required
+                  value={getStakeholderTypeLabel(selectedStakeholderCategory)}
+                  className="w-full rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3 text-slate-600 outline-none"
+                  disabled
                 />
               </div>
 
-              <div className="md:col-span-2">
-                <label className="mb-2 block text-sm font-medium text-slate-700">
-                  Service
-                </label>
-                <input
-                  name="service"
-                  value={stakeholderForm.service}
-                  onChange={handleStakeholderChange}
-                  className="w-full rounded-2xl border border-slate-200 px-4 py-3 outline-none focus:border-blue-500"
-                  placeholder="Ex: مصلحة حكامة البيانات وتدبير المنصات الإلكترونية"
-                  required
-                />
-              </div>
+              {selectedStakeholderCategory ===
+                "service_direction_provinciale" && (
+                <div>
+                  <label className="mb-2 block text-sm font-medium text-slate-700">
+                    Entité parente
+                  </label>
+                  <input
+                    name="entiteParent"
+                    value={stakeholderForm.entiteParent}
+                    onChange={handleStakeholderChange}
+                    className="w-full rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3 text-slate-700 outline-none"
+                    readOnly
+                  />
+                </div>
+              )}
+
+              {selectedStakeholderCategory === "service_direction_centrale" && (
+                <div>
+                  <label className="mb-2 block text-sm font-medium text-slate-700">
+                    Entité parente
+                  </label>
+                  <select
+                    name="entiteParent"
+                    value={stakeholderForm.entiteParent}
+                    onChange={handleStakeholderChange}
+                    className="w-full rounded-2xl border border-slate-200 px-4 py-3 outline-none focus:border-blue-500"
+                    required
+                  >
+                    <option value="">Sélectionner une direction centrale</option>
+                    {centralDirections.map((item) => (
+                      <option key={item.id} value={item.nom}>
+                        {item.nom}
+                      </option>
+                    ))}
+                  </select>
+
+                  {centralDirections.length === 0 && (
+                    <p className="mt-2 text-xs text-amber-600">
+                      Ajoutez d’abord une direction centrale pour pouvoir la
+                      sélectionner ici.
+                    </p>
+                  )}
+                </div>
+              )}
+
+              {requiresVille(selectedStakeholderCategory) && (
+                <div>
+                  <label className="mb-2 block text-sm font-medium text-slate-700">
+                    Ville
+                  </label>
+                  <input
+                    name="ville"
+                    value={stakeholderForm.ville}
+                    onChange={handleStakeholderChange}
+                    className="w-full rounded-2xl border border-slate-200 px-4 py-3 outline-none focus:border-blue-500"
+                    placeholder="Ex: Safi"
+                    required
+                  />
+                </div>
+              )}
 
               <div>
                 <label className="mb-2 block text-sm font-medium text-slate-700">
@@ -865,7 +1126,7 @@ export default function HomePage() {
               <div className="mt-2 flex items-center justify-end gap-3 md:col-span-2">
                 <button
                   type="button"
-                  onClick={() => setIsStakeholderOpen(false)}
+                  onClick={closeStakeholderFlow}
                   className="rounded-2xl border border-slate-200 px-5 py-3 text-sm font-medium text-slate-700 hover:bg-slate-100"
                 >
                   Annuler
