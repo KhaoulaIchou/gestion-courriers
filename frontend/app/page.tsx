@@ -124,47 +124,66 @@ export default function HomePage() {
   const [stakeholderForm, setStakeholderForm] =
     useState<StakeholderForm>(initialStakeholderForm);
 
-  const fetchCourriers = useCallback(async () => {
-    try {
-      setLoading(true);
-      const res = await fetch("http://localhost:3001/courriers");
-      if (!res.ok) {
-        throw new Error("Erreur lors du chargement des courriers");
-      }
-      const data: Courrier[] = await res.json();
-      setCourriers(data);
-    } catch (error) {
-      console.error(error);
-    } finally {
-      setLoading(false);
-    }
-  }, []);
+const fetchCourriers = useCallback(async () => {
+  try {
+    setLoading(true);
+    const res = await fetch("http://localhost:3001/courriers", {
+      credentials: "include",
+      cache: "no-store",
+    });
 
-  const fetchNotifications = useCallback(async () => {
-    try {
-      const res = await fetch("http://localhost:3001/notifications");
-      if (!res.ok) {
-        throw new Error("Erreur lors du chargement des notifications");
-      }
-      const data: NotificationItem[] = await res.json();
-      setNotifications(data);
-    } catch (error) {
-      console.error(error);
+    if (!res.ok) {
+      throw new Error("Erreur lors du chargement des courriers");
     }
-  }, []);
 
-  const fetchStakeholders = useCallback(async () => {
-    try {
-      const res = await fetch("http://localhost:3001/stakeholders");
-      if (!res.ok) {
-        throw new Error("Erreur lors du chargement des parties prenantes");
-      }
-      const data: Stakeholder[] = await res.json();
-      setStakeholders(data);
-    } catch (error) {
-      console.error(error);
+    const data: Courrier[] = await res.json();
+    setCourriers(data);
+  } catch (error) {
+    console.error(error);
+  } finally {
+    setLoading(false);
+  }
+}, []);
+
+const fetchNotifications = useCallback(async () => {
+  try {
+    const res = await fetch("http://localhost:3001/notifications", {
+      credentials: "include",
+      cache: "no-store",
+    });
+
+    if (!res.ok) {
+      throw new Error("Erreur lors du chargement des notifications");
     }
-  }, []);
+
+    const data: NotificationItem[] = await res.json();
+    setNotifications(data);
+  } catch (error) {
+    console.error(error);
+  }
+}, []);
+
+const fetchStakeholders = useCallback(async () => {
+  try {
+    const res = await fetch("http://localhost:3001/stakeholders", {
+      credentials: "include",
+      cache: "no-store",
+    });
+
+    console.log("stakeholders status:", res.status);
+
+    if (!res.ok) {
+      const errorText = await res.text();
+      console.log("stakeholders response:", errorText);
+      throw new Error("Erreur lors du chargement des parties prenantes");
+    }
+
+    const data: Stakeholder[] = await res.json();
+    setStakeholders(data);
+  } catch (error) {
+    console.error(error);
+  }
+}, []);
 
   useEffect(() => {
     fetchCourriers();
@@ -315,7 +334,11 @@ export default function HomePage() {
 
       const res = await fetch("http://localhost:3001/courriers", {
         method: "POST",
-        body: formData,
+        headers: {
+          "Content-Type": "application/json",
+        },
+        credentials: "include",
+        body: JSON.stringify(formData),
       });
 
       if (!res.ok) {
@@ -343,6 +366,7 @@ export default function HomePage() {
         headers: {
           "Content-Type": "application/json",
         },
+        credentials: "include",
         body: JSON.stringify(stakeholderForm),
       });
 
@@ -482,6 +506,18 @@ export default function HomePage() {
                   className="rounded-2xl bg-blue-600 px-4 py-2 text-sm font-semibold text-white hover:bg-blue-700"
                 >
                   Nouveau courrier
+                </button>
+                <button
+                  onClick={async () => {
+                    await fetch("http://localhost:3001/auth/logout", {
+                      method: "POST",
+                      credentials: "include",
+                    });
+                    window.location.href = "/login";
+                  }}
+                  className="rounded-2xl border border-slate-200 bg-white px-4 py-2 text-sm font-medium text-slate-700 hover:bg-slate-100"
+                >
+                  Déconnexion
                 </button>
               </div>
             </div>

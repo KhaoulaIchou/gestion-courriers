@@ -1,6 +1,8 @@
-import { Body, Controller, Get, Post } from "@nestjs/common";
+import { Body, Controller, Get, Post, UseGuards } from "@nestjs/common";
 import { StakeholdersService } from "./stakeholders.service";
+import { JwtAuthGuard } from "../auth/jwt-auth.guard";
 
+@UseGuards(JwtAuthGuard)
 @Controller("stakeholders")
 export class StakeholdersController {
   constructor(private readonly stakeholdersService: StakeholdersService) {}

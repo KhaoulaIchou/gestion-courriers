@@ -6,12 +6,15 @@ import {
   Post,
   UploadedFile,
   UseInterceptors,
+  UseGuards
 } from "@nestjs/common";
 import { FileInterceptor } from "@nestjs/platform-express";
 import { diskStorage } from "multer";
 import { extname } from "path";
 import { CourriersService } from "./courriers.service";
+import { JwtAuthGuard } from "../auth/jwt-auth.guard";
 
+@UseGuards(JwtAuthGuard)
 @Controller("courriers")
 export class CourriersController {
   constructor(private readonly courriersService: CourriersService) {}

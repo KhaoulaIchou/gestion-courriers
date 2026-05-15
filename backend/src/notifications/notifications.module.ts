@@ -4,9 +4,13 @@ import { Notification } from "./notification.entity";
 import { NotificationsService } from "./notifications.service";
 import { NotificationsController } from "./notifications.controller";
 import { Courrier } from "../courriers/courrier.entity";
+import { AuthModule } from "../auth/auth.module";
 
 @Module({
-  imports: [TypeOrmModule.forFeature([Notification, Courrier])],
+  imports: [
+    TypeOrmModule.forFeature([Notification, Courrier]),
+    AuthModule,
+  ],
   providers: [NotificationsService],
   controllers: [NotificationsController],
   exports: [NotificationsService],
