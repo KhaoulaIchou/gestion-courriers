@@ -13,6 +13,8 @@ type Courrier = {
   statut: string;
   stakeholderId?: number | null;
   dateLimiteReponse?: string | null;
+  pdfUrl?: string | null;
+  pdfFilename?: string | null;
   createdAt: string;
 };
 
@@ -21,6 +23,11 @@ export default function CourriersEntrantsPage() {
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState("");
   const [selectedCourrier, setSelectedCourrier] = useState<Courrier | null>(null);
+  const [mounted, setMounted] = useState(false);
+
+  useEffect(() => {
+    setMounted(true);
+  }, []);
 
   useEffect(() => {
     const fetchCourriers = async () => {
@@ -65,6 +72,42 @@ export default function CourriersEntrantsPage() {
     if (!c.dateLimiteReponse || c.statut === "Traité") return false;
     return new Date(c.dateLimiteReponse) < new Date();
   }).length;
+
+  const renderPdfActions = (courrier: Courrier) => {
+    if (!courrier.pdfUrl) {
+      return <span className="text-slate-400">Aucun PDF</span>;
+    }
+
+    return (
+      <div className="flex flex-wrap gap-2">
+        <a
+          href={courrier.pdfUrl}
+          target="_blank"
+          rel="noreferrer"
+          className="rounded-xl bg-blue-600 px-3 py-1 text-xs font-semibold text-white hover:bg-blue-700"
+        >
+          Voir PDF
+        </a>
+        <a
+          href={courrier.pdfUrl}
+          download={courrier.pdfFilename || `${courrier.reference}.pdf`}
+          className="rounded-xl border border-slate-200 px-3 py-1 text-xs font-semibold text-slate-700 hover:bg-slate-100"
+        >
+          Télécharger PDF
+        </a>
+      </div>
+    );
+  };
+
+  if (!mounted) {
+    return (
+      <main className="min-h-screen bg-slate-50 p-8 text-slate-900">
+        <div className="mx-auto max-w-7xl rounded-3xl border border-slate-200 bg-white p-6 shadow-sm">
+          Chargement...
+        </div>
+      </main>
+    );
+  }
 
   return (
     <main className="min-h-screen bg-slate-50 p-8 text-slate-900">
@@ -148,6 +191,9 @@ export default function CourriersEntrantsPage() {
                     Date limite
                   </th>
                   <th className="px-4 py-3 text-left text-sm font-semibold text-slate-600">
+                    PDF
+                  </th>
+                  <th className="px-4 py-3 text-left text-sm font-semibold text-slate-600">
                     Statut
                   </th>
                 </tr>
@@ -156,13 +202,13 @@ export default function CourriersEntrantsPage() {
               <tbody className="divide-y divide-slate-100 bg-white">
                 {loading ? (
                   <tr>
-                    <td colSpan={5} className="px-4 py-6 text-center text-sm text-slate-500">
+                    <td colSpan={6} className="px-4 py-6 text-center text-sm text-slate-500">
                       Chargement...
                     </td>
                   </tr>
                 ) : entrants.length === 0 ? (
                   <tr>
-                    <td colSpan={5} className="px-4 py-6 text-center text-sm text-slate-500">
+                    <td colSpan={6} className="px-4 py-6 text-center text-sm text-slate-500">
                       Aucun courrier entrant trouvé.
                     </td>
                   </tr>
@@ -184,6 +230,9 @@ export default function CourriersEntrantsPage() {
                       </td>
                       <td className="px-4 py-4 text-sm text-slate-600">
                         {courrier.dateLimiteReponse || "—"}
+                      </td>
+                      <td className="px-4 py-4 text-sm text-slate-600">
+                        {renderPdfActions(courrier)}
                       </td>
                       <td className="px-4 py-4 text-sm">
                         <span
@@ -267,8 +316,15 @@ export default function CourriersEntrantsPage() {
               <div>
                 <p className="text-sm text-slate-500">Créé le</p>
                 <p className="font-medium">
-                  {new Date(selectedCourrier.createdAt).toLocaleString()}
+                  {mounted
+                    ? new Date(selectedCourrier.createdAt).toLocaleString("fr-FR")
+                    : "—"}
                 </p>
+              </div>
+
+              <div className="md:col-span-2">
+                <p className="text-sm text-slate-500">Fichier PDF</p>
+                <div className="mt-2">{renderPdfActions(selectedCourrier)}</div>
               </div>
             </div>
           </div>

@@ -34,6 +34,18 @@ export class Courrier {
   @Column({ type: "date", nullable: true })
   dateLimiteReponse: string | null;
 
+  @Column({ type: "varchar", length: 500, nullable: true })
+  pdfUrl: string | null;
+
+  @Column({ type: "varchar", length: 255, nullable: true })
+  pdfFilename: string | null;
+
+  @Column({ type: "varchar", length: 255, nullable: true })
+  pdfStorageKey: string | null;
+
+  @Column({ type: "bigint", nullable: true })
+  pdfSize: number | null;
+
   @CreateDateColumn()
   createdAt: Date;
 }

@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { Bell } from "lucide-react";
 import Link from "next/link";
+import Image from "next/image";
 
 type Courrier = {
   id: number;
@@ -117,7 +118,7 @@ export default function HomePage() {
   const [courriers, setCourriers] = useState<Courrier[]>([]);
   const [notifications, setNotifications] = useState<NotificationItem[]>([]);
   const [stakeholders, setStakeholders] = useState<Stakeholder[]>([]);
-
+  const [pdfFile, setPdfFile] = useState<File | null>(null);
   const [loading, setLoading] = useState(true);
   const [form, setForm] = useState<CourrierForm>(initialCourrierForm);
   const [stakeholderForm, setStakeholderForm] =
@@ -277,7 +278,7 @@ export default function HomePage() {
     return `${stakeholder.nom} — ${typeLabel}`;
   };
 
-  const handleSubmit = async (e: React.FormEvent) => {
+    const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
 
     try {
@@ -290,27 +291,31 @@ export default function HomePage() {
         return;
       }
 
-      const payload = {
-        reference: form.reference,
-        objet: form.objet,
-        expediteur: isEntrant
-          ? selectedStakeholder.nom
-          : INTERNAL_SERVICE_LABEL,
-        destinataire: isEntrant
-          ? INTERNAL_SERVICE_LABEL
-          : selectedStakeholder.nom,
-        type: form.type,
-        statut: form.statut,
-        stakeholderId: Number(form.stakeholderId),
-        dateLimiteReponse: form.dateLimiteReponse || null,
-      };
+      const finalExpediteur = isEntrant
+        ? selectedStakeholder.nom
+        : INTERNAL_SERVICE_LABEL;
+
+      const finalDestinataire = isEntrant
+        ? INTERNAL_SERVICE_LABEL
+        : selectedStakeholder.nom;
+
+      const formData = new FormData();
+      formData.append("reference", form.reference);
+      formData.append("objet", form.objet);
+      formData.append("expediteur", finalExpediteur);
+      formData.append("destinataire", finalDestinataire);
+      formData.append("type", form.type);
+      formData.append("statut", form.statut);
+      formData.append("stakeholderId", String(Number(form.stakeholderId)));
+      formData.append("dateLimiteReponse", form.dateLimiteReponse || "");
+
+      if (pdfFile) {
+        formData.append("pdf", pdfFile);
+      }
 
       const res = await fetch("http://localhost:3001/courriers", {
         method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify(payload),
+        body: formData,
       });
 
       if (!res.ok) {
@@ -318,6 +323,7 @@ export default function HomePage() {
       }
 
       setForm(initialCourrierForm);
+      setPdfFile(null);
       setIsOpen(false);
 
       await fetchCourriers();
@@ -353,6 +359,24 @@ export default function HomePage() {
       alert("Erreur lors de l'ajout de la partie prenante");
     }
   };
+  
+  const handlePdfChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+  const file = e.target.files?.[0] || null;
+
+  if (!file) {
+    setPdfFile(null);
+    return;
+  }
+
+  if (file.type !== "application/pdf") {
+    alert("Veuillez sélectionner un fichier PDF.");
+    e.target.value = "";
+    return;
+  }
+
+  setPdfFile(file);
+};
+
 
   const unreadNotificationsCount = useMemo(
     () => notifications.filter((n) => !n.isRead).length,
@@ -369,12 +393,16 @@ export default function HomePage() {
       <div className="flex">
         <aside className="hidden min-h-screen w-72 border-r border-slate-200 bg-white xl:block">
           <div className="px-6 py-8">
-            <div className="mb-10">
-              <p className="text-xs font-semibold uppercase tracking-[0.25em] text-blue-600">
-                Smart Courrier
-              </p>
-              <h2 className="mt-2 text-2xl font-bold">Administration</h2>
-            </div>
+              <div className="mb-10 flex justify-center">
+                <Image
+                  src="/logo-ministere-justice.png"
+                  alt="Logo Ministère de la Justice"
+                  width={110}
+                  height={110}
+                  className="h-auto w-auto object-contain"
+                  priority
+                />
+              </div>
 
             <nav className="space-y-2">
               <button className="w-full rounded-2xl bg-blue-600 px-4 py-3 text-left text-sm font-semibold text-white">
@@ -800,6 +828,22 @@ export default function HomePage() {
                   onChange={handleChange}
                   className="w-full rounded-2xl border border-slate-200 px-4 py-3 outline-none focus:border-blue-500"
                 />
+              </div>
+              <div className="md:col-span-2">
+                <label className="mb-2 block text-sm font-medium text-slate-700">
+                  Fichier PDF
+                </label>
+                <input
+                  type="file"
+                  accept=".pdf,application/pdf"
+                  onChange={handlePdfChange}
+                  className="w-full rounded-2xl border border-slate-200 bg-white px-4 py-3 outline-none focus:border-blue-500"
+                />
+                {pdfFile && (
+                  <p className="mt-2 text-sm text-slate-500">
+                    Fichier sélectionné : {pdfFile.name}
+                  </p>
+                )}
               </div>
 
               <div className="mt-2 flex items-center justify-end gap-3 md:col-span-2">

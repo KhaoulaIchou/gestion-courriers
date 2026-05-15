@@ -18,7 +18,7 @@ export class CourriersService {
     });
   }
 
-  async create(data: Partial<Courrier>): Promise<Courrier> {
+  async create(data: Partial<Courrier>, file?: Express.Multer.File): Promise<Courrier> {
     const courrier = this.courrierRepository.create({
       reference: data.reference,
       objet: data.objet,
@@ -26,8 +26,12 @@ export class CourriersService {
       destinataire: data.destinataire || "",
       type: data.type,
       statut: data.statut || "En cours",
-      stakeholderId: data.stakeholderId ?? null,
-      dateLimiteReponse: data.dateLimiteReponse ?? null,
+      stakeholderId: data.stakeholderId ? Number(data.stakeholderId) : null,
+      dateLimiteReponse: data.dateLimiteReponse || null,
+      pdfUrl: file ? `http://localhost:3001/uploads/courriers/${file.filename}` : null,
+      pdfFilename: file ? file.originalname : null,
+      pdfStorageKey: file ? file.filename : null,
+      pdfSize: file ? file.size : null,
     });
 
     const savedCourrier = await this.courrierRepository.save(courrier);

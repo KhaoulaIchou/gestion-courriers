@@ -1,4 +1,15 @@
-import { Body, Controller, Get, Post } from "@nestjs/common";
+import {
+  BadRequestException,
+  Body,
+  Controller,
+  Get,
+  Post,
+  UploadedFile,
+  UseInterceptors,
+} from "@nestjs/common";
+import { FileInterceptor } from "@nestjs/platform-express";
+import { diskStorage } from "multer";
+import { extname } from "path";
 import { CourriersService } from "./courriers.service";
 
 @Controller("courriers")
@@ -11,7 +22,33 @@ export class CourriersController {
   }
 
   @Post()
-  async create(@Body() body: any) {
-    return this.courriersService.create(body);
+  @UseInterceptors(
+    FileInterceptor("pdf", {
+      storage: diskStorage({
+        destination: "./uploads/courriers",
+        filename: (req, file, callback) => {
+          const uniqueSuffix = `${Date.now()}-${Math.round(Math.random() * 1e9)}`;
+          callback(null, `courrier-${uniqueSuffix}${extname(file.originalname)}`);
+        },
+      }),
+      fileFilter: (req, file, callback) => {
+        if (file.mimetype !== "application/pdf") {
+          return callback(
+            new BadRequestException("Seuls les fichiers PDF sont autorisés") as any,
+            false,
+          );
+        }
+        callback(null, true);
+      },
+      limits: {
+        fileSize: 10 * 1024 * 1024, // 10 MB
+      },
+    }),
+  )
+  async create(
+    @Body() body: any,
+    @UploadedFile() file?: Express.Multer.File,
+  ) {
+    return this.courriersService.create(body, file);
   }
 }
